@@ -1,5 +1,5 @@
 /*********
-  Rui Santos
+  Based on ESP32-cam code by Rui Santos
   Complete instructions at https://RandomNerdTutorials.com/esp32-cam-projects-ebook/
   
   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files.
@@ -14,8 +14,8 @@
 #include "esp_http_server.h"
 
 // Replace with your network credentials
-const char* ssid = "koza";
-const char* password = "123dieg0!";
+const char* ssid = "SSI";
+const char* password = "PASS";
 
 #define MOTOR_1_PIN_1    14
 #define MOTOR_1_PIN_2    27
