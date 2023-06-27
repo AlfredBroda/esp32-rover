@@ -1,5 +1,7 @@
 #include "mpu.h"
 
+#define SAMPLE_RATE (100)
+
 void IMU::init()
 {
     // Try to initialize!
@@ -90,7 +92,7 @@ void IMU::init()
         break;
     case MPU6050_HIGHPASS_5_HZ:
         Serial.println("5 Hz");
-        break; 
+        break;
     case MPU6050_HIGHPASS_DISABLE:
         Serial.println("Disabled");
         break;
@@ -99,8 +101,9 @@ void IMU::init()
         break;
     }
 
-    FusionAhrsInitialise(&ahrs);
     calibrate();
+    FusionOffsetInitialise(&offset, SAMPLE_RATE);
+    FusionAhrsInitialise(&ahrs);
     // debug();
 }
 
@@ -115,23 +118,27 @@ void IMU::init_motion_detection()
     mpu.setMotionInterrupt(true);
 }
 
-void IMU::calibrate() {
+void IMU::calibrate()
+{
     mpu.getEvent(&a, &g, &temp);
     delay(100);
     mpu.getEvent(&a, &g, &temp);
 
     g_cal = {-g.gyro.x, -g.gyro.y, -g.gyro.z};
-    a_cal = {-a.acceleration.x, -a.acceleration.y, -(a.acceleration.z-9.8f)};
+    a_cal = {-a.acceleration.x, -a.acceleration.y, -(a.acceleration.z - 9.8f)}; // assume z-axis is pointing up
 
     Serial.printf("Calibration data: gX %0.3f, gY %0.3f, gZ %0.3f\n", g_cal.axis.x, g_cal.axis.y, g_cal.axis.z);
     Serial.printf("Calibration data: aX %0.3f, aY %0.3f, aZ %0.3f\n", a_cal.axis.x, a_cal.axis.y, a_cal.axis.z);
+
+    g_cal_deg = {rad2deg(g_cal.axis.x), rad2deg(g_cal.axis.y), rad2deg(g_cal.axis.z)};
+    a_cal_g = {mps2g(a_cal.axis.x), mps2g(a_cal.axis.y), mps2g(a_cal.axis.z)};
 }
 
 void IMU::debug()
 {
     mpu.getEvent(&a, &g, &temp);
 
-    /* Print out the values */
+    /* Print out the values, calibrated */
     Serial.print("Acceleration X: ");
     Serial.print(a.acceleration.x + a_cal.axis.x);
     Serial.print(", Y: ");
@@ -166,6 +173,11 @@ float IMU::mps2g(float mps)
     return (mps / 9.80665);
 }
 
+const FusionMatrix gyroscopeMisalignment = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+const FusionVector gyroscopeSensitivity = {1.0f, 1.0f, 1.0f};
+const FusionMatrix accelerometerMisalignment = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+const FusionVector accelerometerSensitivity = {1.0f, 1.0f, 1.0f};
+
 void IMU::loop()
 {
     /* Get new sensor events with the readings */
@@ -176,28 +188,34 @@ void IMU::loop()
     unsigned long now = millis();
     unsigned long timeElapsed = now - lastTime;
     lastTime = now;
+    float elapsedSeconds = timeElapsed / 1000.0; // This should be close to SAMPLE_RATE
 
-    float gx = rad2deg(g.gyro.x + g_cal.axis.x);
-    float gy = rad2deg(g.gyro.y + g_cal.axis.y);
-    float gz = rad2deg(g.gyro.z + g_cal.axis.z);
+    float gx = rad2deg(g.gyro.x);
+    float gy = rad2deg(g.gyro.y);
+    float gz = rad2deg(g.gyro.z);
 
-    float ax = mps2g(a.acceleration.x + a_cal.axis.x);
-    float ay = mps2g(a.acceleration.y + a_cal.axis.y);
-    float az = mps2g(a.acceleration.z + a_cal.axis.z);
+    float ax = mps2g(a.acceleration.x);
+    float ay = mps2g(a.acceleration.y);
+    float az = mps2g(a.acceleration.z);
 
-    const FusionVector gyroscope = {gx, gy, gz};     // actual gyroscope data in degrees/s
-    const FusionVector accelerometer = {ax, ay, az}; // actual accelerometer data in g
+    FusionVector gyroscope = {gx, gy, gz};     // actual gyroscope data in degrees/s
+    FusionVector accelerometer = {ax, ay, az}; // actual accelerometer data in g
 
-    FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, timeElapsed / 1000);
+    // Update calibration data
+    gyroscope = FusionCalibrationInertial(gyroscope, gyroscopeMisalignment, gyroscopeSensitivity, g_cal_deg);
+    accelerometer = FusionCalibrationInertial(accelerometer, accelerometerMisalignment, accelerometerSensitivity, a_cal_g);
+
+    // Update gyroscope offset correction algorithm
+    gyroscope = FusionOffsetUpdate(&offset, gyroscope);
+
+    FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, elapsedSeconds);
 
     euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
 
-    Serial.printf("gX %0.2f, gY %0.2f, gZ %0.2f, time %0.3fs\n", gx, gy, gz, timeElapsed / 1000.0);
-    Serial.printf("aX %0.2f, aY %0.2f, aZ %0.2f, time %0.3fs\n", ax, ay, az, timeElapsed / 1000.0);
-    // Serial.printf("Roll %0.2f, Pitch %0.2f, Yaw %0.2f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+    // Serial.printf("Roll %0.2f, Pitch %0.2f, Yaw %0.2f, time %0.3fs\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw, elapsedSeconds);
     heading = euler.angle.yaw;
 
-    delay(100);
+    delay(SAMPLE_RATE);
 }
 
 int IMU::getHeading()
