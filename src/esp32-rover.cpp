@@ -13,26 +13,32 @@
 #include "esp_http_server.h"
 
 #include "ssid.h"
+
 #define CUTTER_RELAY
 #include "cutter/relay.cpp"
+
+#define OUTPUT_READABLE_EULER
+#define OUTPUT_READABLE_YAWPITCHROLL
 #include "sensors/mpu.h"
 
-const int LED_PIN = 2;
+#define LED_PIN 2
 
-// Define the GPIO pin connected to the motor driver
-const int CUTTER_PIN = 4;
+// Define the GPIO pin connected to the cutter driver
+#define CUTTER_PIN 4
 
 Cutter cutter = Cutter(CUTTER_PIN);
 
-// Define the failsafe and initial throttle values
-const auto NORMAL_THROTTLE = 500;
-
+// Define the GPIO pins for the motor driver
 #define MOTOR_1_PIN_1 27
 #define MOTOR_1_PIN_2 26
 #define MOTOR_2_PIN_1 13
 #define MOTOR_2_PIN_2 12
 
 httpd_handle_t esp_httpd = NULL;
+
+IMU imu = IMU();
+
+int heading;
 
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>
@@ -105,6 +111,11 @@ static esp_err_t index_handler(httpd_req_t *req)
   return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));
 }
 
+void saveHeading()
+{
+  heading = imu.getHeading();
+}
+
 static esp_err_t cmd_handler(httpd_req_t *req)
 {
   char *buf;
@@ -153,42 +164,45 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   if (!strcmp(variable, "forward"))
   {
     Serial.println("Forward");
-    digitalWrite(MOTOR_1_PIN_1, 1);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 1);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, HIGH);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, HIGH);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
+    saveHeading();
   }
   else if (!strcmp(variable, "left"))
   {
     Serial.println("Left");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 1);
-    digitalWrite(MOTOR_2_PIN_1, 1);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, HIGH);
+    digitalWrite(MOTOR_2_PIN_1, HIGH);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
+    sleep(250);
   }
   else if (!strcmp(variable, "right"))
   {
     Serial.println("Right");
-    digitalWrite(MOTOR_1_PIN_1, 1);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 1);
+    digitalWrite(MOTOR_1_PIN_1, HIGH);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, HIGH);
+    sleep(250);
   }
   else if (!strcmp(variable, "backward"))
   {
     Serial.println("Backward");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 1);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 1);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, HIGH);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, HIGH);
   }
   else if (!strcmp(variable, "stop"))
   {
     Serial.println("Stop");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
   }
   else if (!strcmp(variable, "cutter"))
   {
@@ -204,10 +218,10 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   else if (!strcmp(variable, "abort"))
   {
     Serial.println("Emergency STOP");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
     cutter.stop();
   }
   else
@@ -227,10 +241,10 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 void emergency_stop()
 {
   Serial.println("Emergency STOP");
-  digitalWrite(MOTOR_1_PIN_1, 0);
-  digitalWrite(MOTOR_1_PIN_2, 0);
-  digitalWrite(MOTOR_2_PIN_1, 0);
-  digitalWrite(MOTOR_2_PIN_2, 0);
+  digitalWrite(MOTOR_1_PIN_1, LOW);
+  digitalWrite(MOTOR_1_PIN_2, LOW);
+  digitalWrite(MOTOR_2_PIN_1, LOW);
+  digitalWrite(MOTOR_2_PIN_2, LOW);
   cutter.stop();
 }
 
@@ -255,8 +269,6 @@ void startServer()
     httpd_register_uri_handler(esp_httpd, &cmd_uri);
   }
 }
-
-IMU imu = IMU();
 
 void setup()
 {
@@ -289,7 +301,6 @@ void setup()
   cutter.init();
 
   imu.init();
-  imu.init_motion_detection();
 
   Serial.print("Rover Ready! Go to: http://");
 
@@ -302,16 +313,16 @@ void setup()
 
 unsigned long lastTime = 0;
 unsigned long timeElapsed = 0;
+int blinkTime = 1000;
 bool ledState = false;
-int heading;
 
 void loop()
 {
   // imu.debug();
-  imu.detect_motion();
+  imu.loop();
 
   timeElapsed = millis() - lastTime;
-  if (timeElapsed > 2000)
+  if (timeElapsed > blinkTime)
   {
     digitalWrite(LED_PIN, ledState);
     lastTime = millis();

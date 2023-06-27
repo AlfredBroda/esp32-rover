@@ -3,17 +3,17 @@
 
 #ifdef CUTTER_DSHOT
 
-#include <DShotRMT.h>
+#include <DShotESC.h>
 
 // Initialize the motor
 const auto DSHOT_MODE = DSHOT300;
 
-DShotRMT cutter_actual = DShotRMT(15, RMT_CHANNEL_0);
+DShotESC cutter_actual = DShotESC(15, RMT_CHANNEL_0);
 
 Cutter::Cutter(int pin)
 {
   this->pin = pin;
-  DShotRMT cutter_actual = DShotRMT(this->pin, RMT_CHANNEL_0);
+  DShotESC cutter_actual = DShotESC(this->pin, RMT_CHANNEL_0);
 }
 
 void Cutter::init()

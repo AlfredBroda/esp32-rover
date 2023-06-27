@@ -8,12 +8,12 @@
 Cutter::Cutter(int pin)
 {
   this->pin = pin;
+  pinMode(this->pin, OUTPUT);
+  digitalWrite(this->pin, LOW);
 }
 
 void Cutter::init()
 {
-  pinMode(this->pin, OUTPUT);
-  digitalWrite(this->pin, LOW);
 }
 
 void Cutter::start()

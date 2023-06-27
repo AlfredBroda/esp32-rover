@@ -17,7 +17,8 @@ public:
     void init();
     void init_motion_detection();
     void debug();
-    void detect_motion();
+    void loop();
+    int getHeading();
 };
 
 #endif // MPU_H

@@ -124,33 +124,35 @@ void IMU::debug()
     delay(500);
 }
 
-void IMU::detect_motion()
+void IMU::loop()
 {
     if (mpu.getMotionInterruptStatus())
     {
         /* Get new sensor events with the readings */
         mpu.getEvent(&a, &g, &temp);
 
-        /* Print out the values */
-        Serial.print("AccelX:");
-        Serial.print(a.acceleration.x);
-        Serial.print(",");
-        Serial.print("AccelY:");
-        Serial.print(a.acceleration.y);
-        Serial.print(",");
-        Serial.print("AccelZ:");
-        Serial.print(a.acceleration.z);
-        Serial.print(", ");
-        Serial.print("GyroX:");
-        Serial.print(g.gyro.x);
-        Serial.print(",");
-        Serial.print("GyroY:");
-        Serial.print(g.gyro.y);
-        Serial.print(",");
-        Serial.print("GyroZ:");
-        Serial.print(g.gyro.z);
-        Serial.println("");
+        float x = a.acceleration.x;
+        float y = a.acceleration.y;
+        // float z = a.acceleration.z;
+
+        float heading = atan2(y, x);
+        float declinationAngle = 0.22;
+        heading += declinationAngle;
+
+        // // Accelerometer angle (degrees - 15.16 fixed point)
+        // accel_angle = multfix15(divfix(x, y), oneeightyoverpi);
+
+        // // Gyro angle delta (measurement times timestep) (15.16 fixed point)
+        // gyro_angle_delta = multfix15(g.gyro.y, zeropt001);
+
+        // // Complementary angle (degrees - 15.16 fixed point)
+        // complementary_angle = multfix15(complementary_angle - gyro_angle_delta, zeropt999) + multfix15(accel_angle, zeropt001);
     }
 
     delay(10);
+}
+
+int IMU::getHeading()
+{
+    return 0;
 }
