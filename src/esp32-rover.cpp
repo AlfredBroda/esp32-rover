@@ -6,6 +6,7 @@
 *********/
 
 #include <WiFi.h>
+#include <math.h>
 #include "esp_timer.h"
 #include "Arduino.h"
 #include "soc/soc.h"          // disable brownout problems
@@ -116,6 +117,34 @@ void saveHeading()
   heading = imu.getHeading();
 }
 
+const int maxDeviation = 5;
+
+void trackHeading()
+{
+  const int currentHeading = imu.getHeading();
+  int deviation = currentHeading - heading; 
+  Serial.print("Heading deviation: " + String(deviation));
+  if (abs(deviation) > maxDeviation)
+  {
+    if (deviation < 0)
+    {
+      Serial.println(" Left");
+      // digitalWrite(MOTOR_1_PIN_1, LOW);
+      // digitalWrite(MOTOR_1_PIN_2, HIGH);
+      // digitalWrite(MOTOR_2_PIN_1, HIGH);
+      // digitalWrite(MOTOR_2_PIN_2, LOW);
+    }
+    else
+    {
+      Serial.println(" Right");
+      // digitalWrite(MOTOR_1_PIN_1, HIGH);
+      // digitalWrite(MOTOR_1_PIN_2, LOW);
+      // digitalWrite(MOTOR_2_PIN_1, LOW);
+      // digitalWrite(MOTOR_2_PIN_2, HIGH);
+    }
+  }
+}
+
 static esp_err_t cmd_handler(httpd_req_t *req)
 {
   char *buf;
@@ -168,7 +197,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
     digitalWrite(MOTOR_1_PIN_2, LOW);
     digitalWrite(MOTOR_2_PIN_1, HIGH);
     digitalWrite(MOTOR_2_PIN_2, LOW);
-    saveHeading();
+    trackHeading();
   }
   else if (!strcmp(variable, "left"))
   {
@@ -195,6 +224,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
     digitalWrite(MOTOR_1_PIN_2, HIGH);
     digitalWrite(MOTOR_2_PIN_1, LOW);
     digitalWrite(MOTOR_2_PIN_2, HIGH);
+    trackHeading();
   }
   else if (!strcmp(variable, "stop"))
   {
@@ -203,6 +233,7 @@ static esp_err_t cmd_handler(httpd_req_t *req)
     digitalWrite(MOTOR_1_PIN_2, LOW);
     digitalWrite(MOTOR_2_PIN_1, LOW);
     digitalWrite(MOTOR_2_PIN_2, LOW);
+    saveHeading();
   }
   else if (!strcmp(variable, "cutter"))
   {
@@ -301,6 +332,7 @@ void setup()
   cutter.init();
 
   imu.init();
+  // imu.init_motion_detection();
 
   Serial.print("Rover Ready! Go to: http://");
 
@@ -324,6 +356,8 @@ void loop()
   timeElapsed = millis() - lastTime;
   if (timeElapsed > blinkTime)
   {
+    saveHeading();
+    Serial.println("Current heading: " + String(heading));
     digitalWrite(LED_PIN, ledState);
     lastTime = millis();
     ledState = !ledState;

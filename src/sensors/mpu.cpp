@@ -1,13 +1,5 @@
 #include "mpu.h"
 
-IMU::IMU()
-{
-}
-
-IMU::~IMU()
-{
-}
-
 void IMU::init()
 {
     // Try to initialize!
@@ -21,7 +13,7 @@ void IMU::init()
     }
     Serial.println("MPU6050 Found!");
 
-    mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+    mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
     Serial.print("Accelerometer range set to: ");
     switch (mpu.getAccelerometerRange())
     {
@@ -38,7 +30,7 @@ void IMU::init()
         Serial.println("+-16G");
         break;
     }
-    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+    mpu.setGyroRange(MPU6050_RANGE_1000_DEG);
     Serial.print("Gyro range set to: ");
     switch (mpu.getGyroRange())
     {
@@ -82,11 +74,39 @@ void IMU::init()
         Serial.println("5 Hz");
         break;
     }
+
+    // mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
+    Serial.print("High pass filter set to: ");
+    switch (mpu.getHighPassFilter())
+    {
+    case MPU6050_HIGHPASS_0_63_HZ:
+        Serial.println("0.63 Hz");
+        break;
+    case MPU6050_HIGHPASS_1_25_HZ:
+        Serial.println("1.25 Hz");
+        break;
+    case MPU6050_HIGHPASS_2_5_HZ:
+        Serial.println("2.5 Hz");
+        break;
+    case MPU6050_HIGHPASS_5_HZ:
+        Serial.println("5 Hz");
+        break; 
+    case MPU6050_HIGHPASS_DISABLE:
+        Serial.println("Disabled");
+        break;
+    case MPU6050_HIGHPASS_UNUSED:
+        Serial.println("Unused");
+        break;
+    }
+
+    FusionAhrsInitialise(&ahrs);
+    calibrate();
+    // debug();
 }
 
 void IMU::init_motion_detection()
 {
-    // setupt motion detection
+    // setup motion detection
     mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
     mpu.setMotionDetectionThreshold(1);
     mpu.setMotionDetectionDuration(20);
@@ -95,25 +115,37 @@ void IMU::init_motion_detection()
     mpu.setMotionInterrupt(true);
 }
 
+void IMU::calibrate() {
+    mpu.getEvent(&a, &g, &temp);
+    delay(100);
+    mpu.getEvent(&a, &g, &temp);
+
+    g_cal = {-g.gyro.x, -g.gyro.y, -g.gyro.z};
+    a_cal = {-a.acceleration.x, -a.acceleration.y, -(a.acceleration.z-9.8f)};
+
+    Serial.printf("Calibration data: gX %0.3f, gY %0.3f, gZ %0.3f\n", g_cal.axis.x, g_cal.axis.y, g_cal.axis.z);
+    Serial.printf("Calibration data: aX %0.3f, aY %0.3f, aZ %0.3f\n", a_cal.axis.x, a_cal.axis.y, a_cal.axis.z);
+}
+
 void IMU::debug()
 {
     mpu.getEvent(&a, &g, &temp);
 
     /* Print out the values */
     Serial.print("Acceleration X: ");
-    Serial.print(a.acceleration.x);
+    Serial.print(a.acceleration.x + a_cal.axis.x);
     Serial.print(", Y: ");
-    Serial.print(a.acceleration.y);
+    Serial.print(a.acceleration.y + a_cal.axis.y);
     Serial.print(", Z: ");
-    Serial.print(a.acceleration.z);
+    Serial.print(a.acceleration.z + a_cal.axis.z);
     Serial.println(" m/s^2");
 
     Serial.print("Rotation X: ");
-    Serial.print(g.gyro.x);
+    Serial.print(g.gyro.x + g_cal.axis.x);
     Serial.print(", Y: ");
-    Serial.print(g.gyro.y);
+    Serial.print(g.gyro.y + g_cal.axis.y);
     Serial.print(", Z: ");
-    Serial.print(g.gyro.z);
+    Serial.print(g.gyro.z + g_cal.axis.z);
     Serial.println(" rad/s");
 
     Serial.print("Temperature: ");
@@ -124,35 +156,60 @@ void IMU::debug()
     delay(500);
 }
 
+float IMU::rad2deg(float radians)
+{
+    return ((radians * 4068) / 71);
+}
+
+float IMU::mps2g(float mps)
+{
+    return (mps / 9.80665);
+}
+
 void IMU::loop()
 {
-    if (mpu.getMotionInterruptStatus())
-    {
-        /* Get new sensor events with the readings */
-        mpu.getEvent(&a, &g, &temp);
+    /* Get new sensor events with the readings */
+    mpu.getEvent(&a, &g, &temp);
 
-        float x = a.acceleration.x;
-        float y = a.acceleration.y;
-        // float z = a.acceleration.z;
+    // Serial.printf("gX %0.2f, gY %0.2f, gZ %0.2f\n", g.gyro.x, g.gyro.y, g.gyro.z);
 
-        float heading = atan2(y, x);
-        float declinationAngle = 0.22;
-        heading += declinationAngle;
+    unsigned long now = millis();
+    unsigned long timeElapsed = now - lastTime;
+    lastTime = now;
 
-        // // Accelerometer angle (degrees - 15.16 fixed point)
-        // accel_angle = multfix15(divfix(x, y), oneeightyoverpi);
+    float gx = rad2deg(g.gyro.x + g_cal.axis.x);
+    float gy = rad2deg(g.gyro.y + g_cal.axis.y);
+    float gz = rad2deg(g.gyro.z + g_cal.axis.z);
 
-        // // Gyro angle delta (measurement times timestep) (15.16 fixed point)
-        // gyro_angle_delta = multfix15(g.gyro.y, zeropt001);
+    float ax = mps2g(a.acceleration.x + a_cal.axis.x);
+    float ay = mps2g(a.acceleration.y + a_cal.axis.y);
+    float az = mps2g(a.acceleration.z + a_cal.axis.z);
 
-        // // Complementary angle (degrees - 15.16 fixed point)
-        // complementary_angle = multfix15(complementary_angle - gyro_angle_delta, zeropt999) + multfix15(accel_angle, zeropt001);
-    }
+    const FusionVector gyroscope = {gx, gy, gz};     // actual gyroscope data in degrees/s
+    const FusionVector accelerometer = {ax, ay, az}; // actual accelerometer data in g
 
-    delay(10);
+    FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, timeElapsed / 1000);
+
+    euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
+
+    Serial.printf("gX %0.2f, gY %0.2f, gZ %0.2f, time %0.3fs\n", gx, gy, gz, timeElapsed / 1000.0);
+    Serial.printf("aX %0.2f, aY %0.2f, aZ %0.2f, time %0.3fs\n", ax, ay, az, timeElapsed / 1000.0);
+    // Serial.printf("Roll %0.2f, Pitch %0.2f, Yaw %0.2f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+    heading = euler.angle.yaw;
+
+    delay(100);
 }
 
 int IMU::getHeading()
 {
-    return 0;
+    Serial.printf("Roll %0.2f, Pitch %0.2f, Yaw %0.2f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+    return heading;
+}
+
+IMU::IMU()
+{
+}
+
+IMU::~IMU()
+{
 }
