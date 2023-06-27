@@ -23,6 +23,7 @@ public:
 private:
     Adafruit_MPU6050 mpu;
     FusionAhrs ahrs;
+    FusionOffset offset;
     sensors_event_t a, g, temp;
     float heading;
     float rad2deg(float rad);
@@ -31,6 +32,8 @@ private:
     FusionEuler euler; // [Roll, Pitch, Yaw] Euler angle container
     FusionVector a_cal; // accelerometer calibration data
     FusionVector g_cal; // gyroscope calibration data
+    FusionVector a_cal_g ; // accelerometer calibration data converted to Gs
+    FusionVector g_cal_deg; // gyroscope calibration data converted to degrees
 };
 
 #endif // MPU_H
