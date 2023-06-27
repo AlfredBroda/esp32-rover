@@ -4,7 +4,6 @@
   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files.
   The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 *********/
-#define CUTTER_RELAY
 
 #include <WiFi.h>
 #include "esp_timer.h"
@@ -12,8 +11,11 @@
 #include "soc/soc.h"          // disable brownout problems
 #include "soc/rtc_cntl_reg.h" // disable brownout problems
 #include "esp_http_server.h"
-#include "cutter/relay.cpp"
+
 #include "ssid.h"
+#define CUTTER_RELAY
+#include "cutter/relay.cpp"
+#include "sensors/mpu.h"
 
 const int LED_PIN = 2;
 
@@ -254,6 +256,8 @@ void startServer()
   }
 }
 
+IMU imu = IMU();
+
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
@@ -284,6 +288,9 @@ void setup()
   Serial.println("Cutter init");
   cutter.init();
 
+  imu.init();
+  imu.init_motion_detection();
+
   Serial.print("Rover Ready! Go to: http://");
 
   Serial.println(WiFi.localIP());
@@ -296,9 +303,13 @@ void setup()
 unsigned long lastTime = 0;
 unsigned long timeElapsed = 0;
 bool ledState = false;
+int heading;
 
 void loop()
 {
+  // imu.debug();
+  imu.detect_motion();
+
   timeElapsed = millis() - lastTime;
   if (timeElapsed > 2000)
   {
