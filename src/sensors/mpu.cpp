@@ -101,6 +101,7 @@ void IMU::init()
         break;
     }
 
+    delay(1000);
     calibrate();
     FusionOffsetInitialise(&offset, SAMPLE_RATE);
     FusionAhrsInitialise(&ahrs);
