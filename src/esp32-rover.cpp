@@ -4,33 +4,42 @@
   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files.
   The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 *********/
-#define CUTTER_RELAY
 
 #include <WiFi.h>
+#include <math.h>
 #include "esp_timer.h"
 #include "Arduino.h"
 #include "soc/soc.h"          // disable brownout problems
 #include "soc/rtc_cntl_reg.h" // disable brownout problems
 #include "esp_http_server.h"
-#include "cutter/relay.cpp"
+
 #include "ssid.h"
 
-const int LED_PIN = 2;
+#define CUTTER_RELAY
+#include "cutter/relay.cpp"
 
-// Define the GPIO pin connected to the motor driver
-const int CUTTER_PIN = 4;
+#define OUTPUT_READABLE_EULER
+#define OUTPUT_READABLE_YAWPITCHROLL
+#include "sensors/mpu.h"
+
+#define LED_PIN 2
+
+// Define the GPIO pin connected to the cutter driver
+#define CUTTER_PIN 4
 
 Cutter cutter = Cutter(CUTTER_PIN);
 
-// Define the failsafe and initial throttle values
-const auto NORMAL_THROTTLE = 500;
-
+// Define the GPIO pins for the motor driver
 #define MOTOR_1_PIN_1 27
 #define MOTOR_1_PIN_2 26
 #define MOTOR_2_PIN_1 13
 #define MOTOR_2_PIN_2 12
 
 httpd_handle_t esp_httpd = NULL;
+
+IMU imu = IMU();
+
+int heading;
 
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>
@@ -103,6 +112,39 @@ static esp_err_t index_handler(httpd_req_t *req)
   return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));
 }
 
+void saveHeading()
+{
+  heading = imu.getHeading();
+}
+
+const int maxDeviation = 5;
+
+void trackHeading()
+{
+  const int currentHeading = imu.getHeading();
+  int deviation = currentHeading - heading; 
+  Serial.print("Heading deviation: " + String(deviation));
+  if (abs(deviation) > maxDeviation)
+  {
+    if (deviation < 0)
+    {
+      Serial.println(" Left");
+      // digitalWrite(MOTOR_1_PIN_1, LOW);
+      // digitalWrite(MOTOR_1_PIN_2, HIGH);
+      // digitalWrite(MOTOR_2_PIN_1, HIGH);
+      // digitalWrite(MOTOR_2_PIN_2, LOW);
+    }
+    else
+    {
+      Serial.println(" Right");
+      // digitalWrite(MOTOR_1_PIN_1, HIGH);
+      // digitalWrite(MOTOR_1_PIN_2, LOW);
+      // digitalWrite(MOTOR_2_PIN_1, LOW);
+      // digitalWrite(MOTOR_2_PIN_2, HIGH);
+    }
+  }
+}
+
 static esp_err_t cmd_handler(httpd_req_t *req)
 {
   char *buf;
@@ -151,42 +193,47 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   if (!strcmp(variable, "forward"))
   {
     Serial.println("Forward");
-    digitalWrite(MOTOR_1_PIN_1, 1);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 1);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, HIGH);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, HIGH);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
+    trackHeading();
   }
   else if (!strcmp(variable, "left"))
   {
     Serial.println("Left");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 1);
-    digitalWrite(MOTOR_2_PIN_1, 1);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, HIGH);
+    digitalWrite(MOTOR_2_PIN_1, HIGH);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
+    sleep(250);
   }
   else if (!strcmp(variable, "right"))
   {
     Serial.println("Right");
-    digitalWrite(MOTOR_1_PIN_1, 1);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 1);
+    digitalWrite(MOTOR_1_PIN_1, HIGH);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, HIGH);
+    sleep(250);
   }
   else if (!strcmp(variable, "backward"))
   {
     Serial.println("Backward");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 1);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 1);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, HIGH);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, HIGH);
+    trackHeading();
   }
   else if (!strcmp(variable, "stop"))
   {
     Serial.println("Stop");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
+    saveHeading();
   }
   else if (!strcmp(variable, "cutter"))
   {
@@ -202,10 +249,10 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   else if (!strcmp(variable, "abort"))
   {
     Serial.println("Emergency STOP");
-    digitalWrite(MOTOR_1_PIN_1, 0);
-    digitalWrite(MOTOR_1_PIN_2, 0);
-    digitalWrite(MOTOR_2_PIN_1, 0);
-    digitalWrite(MOTOR_2_PIN_2, 0);
+    digitalWrite(MOTOR_1_PIN_1, LOW);
+    digitalWrite(MOTOR_1_PIN_2, LOW);
+    digitalWrite(MOTOR_2_PIN_1, LOW);
+    digitalWrite(MOTOR_2_PIN_2, LOW);
     cutter.stop();
   }
   else
@@ -225,10 +272,10 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 void emergency_stop()
 {
   Serial.println("Emergency STOP");
-  digitalWrite(MOTOR_1_PIN_1, 0);
-  digitalWrite(MOTOR_1_PIN_2, 0);
-  digitalWrite(MOTOR_2_PIN_1, 0);
-  digitalWrite(MOTOR_2_PIN_2, 0);
+  digitalWrite(MOTOR_1_PIN_1, LOW);
+  digitalWrite(MOTOR_1_PIN_2, LOW);
+  digitalWrite(MOTOR_2_PIN_1, LOW);
+  digitalWrite(MOTOR_2_PIN_2, LOW);
   cutter.stop();
 }
 
@@ -284,6 +331,9 @@ void setup()
   Serial.println("Cutter init");
   cutter.init();
 
+  imu.init();
+  // imu.init_motion_detection();
+
   Serial.print("Rover Ready! Go to: http://");
 
   Serial.println(WiFi.localIP());
@@ -295,13 +345,19 @@ void setup()
 
 unsigned long lastTime = 0;
 unsigned long timeElapsed = 0;
+int blinkTime = 1000;
 bool ledState = false;
 
 void loop()
 {
+  // imu.debug();
+  imu.loop();
+
   timeElapsed = millis() - lastTime;
-  if (timeElapsed > 2000)
+  if (timeElapsed > blinkTime)
   {
+    saveHeading();
+    Serial.println("Current heading: " + String(heading));
     digitalWrite(LED_PIN, ledState);
     lastTime = millis();
     ledState = !ledState;
