@@ -15,6 +15,7 @@
 
 #include "ssid.h"
 #include "state/structs.h"
+#include "state/tracker.h"
 
 #define CUTTER_RELAY
 #include "cutter/relay.cpp"
@@ -39,9 +40,7 @@ Cutter cutter = Cutter(CUTTER_PIN);
 
 httpd_handle_t esp_httpd = NULL;
 
-IMU imu = IMU();
-
-int heading;
+Tracker stateTracker = Tracker(MOTOR_1_PIN_1, MOTOR_1_PIN_2, MOTOR_2_PIN_1, MOTOR_2_PIN_2, IMU());
 
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>
@@ -116,81 +115,6 @@ static esp_err_t index_handler(httpd_req_t *req)
   return httpd_resp_send(req, (const char *)INDEX_HTML, strlen(INDEX_HTML));
 }
 
-void saveHeading()
-{
-  heading = imu.getHeading();
-}
-
-const int maxDeviation = 5;
-state_t currentState = STOP;
-
-void setMotorState(MotorPreset preset)
-{
-  analogWrite(MOTOR_1_PIN_1, preset.a1);
-  analogWrite(MOTOR_1_PIN_2, preset.a2);
-  analogWrite(MOTOR_2_PIN_1, preset.b1);
-  analogWrite(MOTOR_2_PIN_2, preset.b2);
-}
-
-void trackHeading()
-{
-  const int currentHeading = imu.getHeading();
-  int deviation = currentHeading - heading;
-  Serial.print("Heading deviation: " + String(deviation));
-  if (abs(deviation) > maxDeviation)
-  {
-    if (currentState == FORWARD)
-    {
-      if (deviation > 0)
-      {
-        Serial.println(" Right");
-        setMotorState(M_RIGHT);
-      }
-      else
-      {
-        Serial.println(" Lefst");
-        setMotorState(M_LEFT);
-      }
-    }
-    else if (currentState == BACKWARD)
-    {
-      if (deviation > 0)
-      {
-        Serial.println(" Left");
-        setMotorState(M_LEFT_REVERSE);
-      }
-      else 
-      {
-        Serial.println(" Right");
-        setMotorState(M_RIGHT_REVERSE);
-      }
-    }
-  }
-  else
-  {
-    if (currentState == FORWARD)
-    {
-      Serial.println(" Straight");
-      setMotorState(M_FORWARD);
-    }
-    else if (currentState == BACKWARD)
-    {
-      Serial.println(" Reverse");
-      setMotorState(M_BACKWARD);
-    }
-  }
-}
-
-void emergency_stop()
-{
-  Serial.println("Emergency STOP");
-  setMotorState(M_STOP);
-  currentState = STOP;
-  cutter.stop();
-  delay(5000);
-  imu.calibrate();
-}
-
 static esp_err_t cmd_handler(httpd_req_t *req)
 {
   char *buf;
@@ -238,48 +162,37 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
   if (!strcmp(variable, "abort"))
   {
-    emergency_stop();
+    cutter.stop();
+    stateTracker.emergencyStop();
   }
   else if (!strcmp(variable, "forward"))
   {
-    Serial.println("Forward");
-    setMotorState(M_FORWARD);
-    currentState = FORWARD;
-    saveHeading();
+    stateTracker.setState(FORWARD);
   }
   else if (!strcmp(variable, "left"))
   {
-    Serial.println("Left");
-    setMotorState(M_LEFT_SPOT);
-    currentState = LEFT;
+    stateTracker.setState(LEFT);
   }
   else if (!strcmp(variable, "right"))
   {
-    Serial.println("Right");
-    setMotorState(M_RIGHT_SPOT);
-    currentState = RIGHT;
+    stateTracker.setState(RIGHT);
   }
   else if (!strcmp(variable, "backward"))
   {
-    Serial.println("Backward");
-    setMotorState(M_BACKWARD);
-    currentState = BACKWARD;
-    saveHeading();
+    stateTracker.setState(BACKWARD);
   }
   else if (!strcmp(variable, "stop"))
   {
-    Serial.println("Stop");
-    setMotorState(M_STOP);
-    currentState = STOP;
+    stateTracker.setState(STOP);
   }
   else if (!strcmp(variable, "cutter"))
   {
-    Serial.println("Cutter start");
+    Serial.println("Cutter ON");
     cutter.start();
   }
   else if (!strcmp(variable, "cutter_stop"))
   {
-    Serial.println("Cutter stop");
+    Serial.println("Cutter OFF");
     cutter.stop();
   }
   else
@@ -341,19 +254,18 @@ void setup()
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.println("WiFi connected");
+  Serial.println("\nWiFi connected");
 
   // Start generating signal for the cutter motor
   Serial.println("Cutter init");
   cutter.init();
 
-  imu.init();
-  // imu.init_motion_detection();
+  stateTracker.init();
 
   Serial.print("Rover Ready! Go to: http://");
 
   Serial.println(WiFi.localIP());
+  
   digitalWrite(LED_PIN, HIGH);
 
   // Start web server
@@ -367,25 +279,20 @@ bool ledState = false;
 
 void loop()
 {
-  imu.loop();
-  // imu.debug();
+  stateTracker.loop();
+
   if (digitalRead(EMERGENCY_PIN) == HIGH)
   {
-    emergency_stop();
+    stateTracker.emergencyStop();
+    cutter.stop();
     sleep(30);
-  }
-
-  if (currentState == FORWARD || currentState == BACKWARD)
-  {
-    trackHeading();
   }
 
   timeElapsed = millis() - lastTime;
   if (timeElapsed > blinkTime)
   {
     // Debug output
-    Serial.printf("Current heading: %d, State: %d", imu.getHeading(), currentState);
-    Serial.println();
+    Serial.printf("Current heading: %d, State: %s, %s\n", stateTracker.getActualHeading(), stateTracker.getStateString(), stateTracker.getCurrentAction());
 
     digitalWrite(LED_PIN, ledState);
     lastTime = millis();
