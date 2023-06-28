@@ -14,6 +14,7 @@
 #include "esp_http_server.h"
 
 #include "ssid.h"
+#include "state/structs.h"
 
 #define CUTTER_RELAY
 #include "cutter/relay.cpp"
@@ -22,14 +23,15 @@
 #define OUTPUT_READABLE_YAWPITCHROLL
 #include "sensors/mpu.h"
 
-#define LED_PIN 2
+#define LED_PIN 2        // GPIO pin connected to the built LED
+#define EMERGENCY_PIN 33 // GPIO pin connected to the emergency stop button
 
-// Define the GPIO pin connected to the cutter driver
+// GPIO pin connected to the cutter driver
 #define CUTTER_PIN 4
 
 Cutter cutter = Cutter(CUTTER_PIN);
 
-// Define the GPIO pins for the motor driver
+// GPIO pins for the motor driver
 #define MOTOR_1_PIN_1 27
 #define MOTOR_1_PIN_2 26
 #define MOTOR_2_PIN_1 13
@@ -70,6 +72,9 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         user-select: none;
         -webkit-tap-highlight-color: rgba(0,0,0,0);
       }
+      .abort {
+        background-color: #ff0000;
+      }
       img {  width: auto ;
         max-width: 100% ;
         height: auto ; 
@@ -88,10 +93,9 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       </tr><tr>
         <td colspan="3" align="center"><button class="button" onmousedown="toggleCheckbox('backward');" ontouchstart="toggleCheckbox('backward');">Backward</button></td>
       </tr>
-    </table>
-    <table>
       <tr>
         <td align="center"><button class="button" onmousedown="toggleCheckbox('cutter');" ontouchstart="toggleCheckbox('cutter');">Cutter Start</button></td>
+        <td align="center"><button class="button abort" onmousedown="toggleCheckbox('abort');" ontouchstart="toggleCheckbox('abort');">Emergency Stop</button></td>
         <td align="center"><button class="button" onmousedown="toggleCheckbox('cutter_stop');" ontouchstart="toggleCheckbox('cutter_stop');">Cutter Stop</button></td>
       </tr>
     </table>
@@ -118,31 +122,73 @@ void saveHeading()
 }
 
 const int maxDeviation = 5;
+state_t currentState = STOP;
+
+void setMotorState(MotorPreset preset)
+{
+  digitalWrite(MOTOR_1_PIN_1, preset.a1);
+  digitalWrite(MOTOR_1_PIN_2, preset.a2);
+  digitalWrite(MOTOR_2_PIN_1, preset.b1);
+  digitalWrite(MOTOR_2_PIN_2, preset.b2);
+}
 
 void trackHeading()
 {
   const int currentHeading = imu.getHeading();
-  int deviation = currentHeading - heading; 
+  int deviation = currentHeading - heading;
   Serial.print("Heading deviation: " + String(deviation));
   if (abs(deviation) > maxDeviation)
   {
-    if (deviation < 0)
+    if (deviation > 0)
     {
-      Serial.println(" Left");
-      // digitalWrite(MOTOR_1_PIN_1, LOW);
-      // digitalWrite(MOTOR_1_PIN_2, HIGH);
-      // digitalWrite(MOTOR_2_PIN_1, HIGH);
-      // digitalWrite(MOTOR_2_PIN_2, LOW);
+      if (currentState == FORWARD)
+      {
+        Serial.println(" Right");
+        setMotorState(M_RIGHT_SPOT);
+      }
+      else if (currentState == BACKWARD)
+      {
+        Serial.println(" Left");
+        setMotorState(M_LEFT_SPOT);
+      }
     }
     else
     {
-      Serial.println(" Right");
-      // digitalWrite(MOTOR_1_PIN_1, HIGH);
-      // digitalWrite(MOTOR_1_PIN_2, LOW);
-      // digitalWrite(MOTOR_2_PIN_1, LOW);
-      // digitalWrite(MOTOR_2_PIN_2, HIGH);
+      if (currentState == FORWARD)
+      {
+        Serial.println(" Left");
+        setMotorState(M_LEFT_SPOT);
+      }
+      else if (currentState == BACKWARD)
+      {
+        Serial.println(" Right");
+        setMotorState(M_RIGHT_SPOT);
+      }
     }
   }
+  else
+  {
+    if (currentState == FORWARD)
+    {
+      Serial.println(" Straight");
+      setMotorState(M_FORWARD);
+    }
+    else if (currentState == BACKWARD)
+    {
+      Serial.println(" Reverse");
+      setMotorState(M_BACKWARD);
+    }
+  }
+}
+
+void emergency_stop()
+{
+  Serial.println("Emergency STOP");
+  setMotorState(M_STOP);
+  currentState = STOP;
+  cutter.stop();
+  delay(5000);
+  imu.calibrate();
 }
 
 static esp_err_t cmd_handler(httpd_req_t *req)
@@ -190,69 +236,50 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
   int res = 0;
 
-  if (!strcmp(variable, "forward"))
+  if (!strcmp(variable, "abort"))
+  {
+    emergency_stop();
+  }
+  else if (!strcmp(variable, "forward"))
   {
     Serial.println("Forward");
-    digitalWrite(MOTOR_1_PIN_1, HIGH);
-    digitalWrite(MOTOR_1_PIN_2, LOW);
-    digitalWrite(MOTOR_2_PIN_1, HIGH);
-    digitalWrite(MOTOR_2_PIN_2, LOW);
-    trackHeading();
+    setMotorState(M_FORWARD);
+    currentState = FORWARD;
+    saveHeading();
   }
   else if (!strcmp(variable, "left"))
   {
     Serial.println("Left");
-    digitalWrite(MOTOR_1_PIN_1, LOW);
-    digitalWrite(MOTOR_1_PIN_2, HIGH);
-    digitalWrite(MOTOR_2_PIN_1, HIGH);
-    digitalWrite(MOTOR_2_PIN_2, LOW);
-    sleep(250);
+    setMotorState(M_LEFT_SPOT);
+    currentState = LEFT;
   }
   else if (!strcmp(variable, "right"))
   {
     Serial.println("Right");
-    digitalWrite(MOTOR_1_PIN_1, HIGH);
-    digitalWrite(MOTOR_1_PIN_2, LOW);
-    digitalWrite(MOTOR_2_PIN_1, LOW);
-    digitalWrite(MOTOR_2_PIN_2, HIGH);
-    sleep(250);
+    setMotorState(M_RIGHT_SPOT);
+    currentState = RIGHT;
   }
   else if (!strcmp(variable, "backward"))
   {
     Serial.println("Backward");
-    digitalWrite(MOTOR_1_PIN_1, LOW);
-    digitalWrite(MOTOR_1_PIN_2, HIGH);
-    digitalWrite(MOTOR_2_PIN_1, LOW);
-    digitalWrite(MOTOR_2_PIN_2, HIGH);
-    trackHeading();
+    setMotorState(M_BACKWARD);
+    currentState = BACKWARD;
+    saveHeading();
   }
   else if (!strcmp(variable, "stop"))
   {
     Serial.println("Stop");
-    digitalWrite(MOTOR_1_PIN_1, LOW);
-    digitalWrite(MOTOR_1_PIN_2, LOW);
-    digitalWrite(MOTOR_2_PIN_1, LOW);
-    digitalWrite(MOTOR_2_PIN_2, LOW);
-    saveHeading();
+    setMotorState(M_STOP);
+    currentState = STOP;
   }
   else if (!strcmp(variable, "cutter"))
   {
     Serial.println("Cutter start");
     cutter.start();
-    delay(15);
   }
   else if (!strcmp(variable, "cutter_stop"))
   {
     Serial.println("Cutter stop");
-    cutter.stop();
-  }
-  else if (!strcmp(variable, "abort"))
-  {
-    Serial.println("Emergency STOP");
-    digitalWrite(MOTOR_1_PIN_1, LOW);
-    digitalWrite(MOTOR_1_PIN_2, LOW);
-    digitalWrite(MOTOR_2_PIN_1, LOW);
-    digitalWrite(MOTOR_2_PIN_2, LOW);
     cutter.stop();
   }
   else
@@ -267,16 +294,6 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   return httpd_resp_send(req, NULL, 0);
-}
-
-void emergency_stop()
-{
-  Serial.println("Emergency STOP");
-  digitalWrite(MOTOR_1_PIN_1, LOW);
-  digitalWrite(MOTOR_1_PIN_2, LOW);
-  digitalWrite(MOTOR_2_PIN_1, LOW);
-  digitalWrite(MOTOR_2_PIN_2, LOW);
-  cutter.stop();
 }
 
 void startServer()
@@ -303,9 +320,10 @@ void startServer()
 
 void setup()
 {
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
+  // WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
 
   pinMode(LED_PIN, OUTPUT);
+  pinMode(EMERGENCY_PIN, INPUT);
 
   // setup drive motors
   pinMode(MOTOR_1_PIN_1, OUTPUT);
@@ -326,8 +344,7 @@ void setup()
   Serial.println("");
   Serial.println("WiFi connected");
 
-  // Start generating signal for the motor
-  // delay(3000);
+  // Start generating signal for the cutter motor
   Serial.println("Cutter init");
   cutter.init();
 
@@ -350,14 +367,26 @@ bool ledState = false;
 
 void loop()
 {
-  // imu.debug();
   imu.loop();
+  // imu.debug();
+  if (digitalRead(EMERGENCY_PIN) == HIGH)
+  {
+    emergency_stop();
+    sleep(30);
+  }
+
+  if (currentState == FORWARD || currentState == BACKWARD)
+  {
+    trackHeading();
+  }
 
   timeElapsed = millis() - lastTime;
   if (timeElapsed > blinkTime)
   {
-    saveHeading();
-    Serial.println("Current heading: " + String(heading));
+    // Debug output
+    Serial.printf("Current heading: %d, State: %d", imu.getHeading(), currentState);
+    Serial.println();
+
     digitalWrite(LED_PIN, ledState);
     lastTime = millis();
     ledState = !ledState;
