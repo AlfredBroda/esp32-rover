@@ -6,6 +6,7 @@
 *********/
 
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <math.h>
 #include "esp_timer.h"
 #include "Arduino.h"
@@ -13,15 +14,13 @@
 #include "soc/rtc_cntl_reg.h" // disable brownout problems
 #include "esp_http_server.h"
 
-#include "ssid.h"
+#include "secrets.h"
 #include "state/structs.h"
 #include "state/tracker.h"
 
 #define CUTTER_RELAY
 #include "cutter/relay.cpp"
 
-#define OUTPUT_READABLE_EULER
-#define OUTPUT_READABLE_YAWPITCHROLL
 #include "sensors/mpu.h"
 
 #define LED_PIN 2        // GPIO pin connected to the built LED
@@ -37,6 +36,8 @@ Cutter cutter = Cutter(CUTTER_PIN);
 #define MOTOR_1_PIN_2 26
 #define MOTOR_2_PIN_1 13
 #define MOTOR_2_PIN_2 12
+
+const char *HOSTNAME = "esp32-mower";
 
 httpd_handle_t esp_httpd = NULL;
 
@@ -249,6 +250,7 @@ void setup()
 
   // Wi-Fi connection
   WiFi.begin(SSID, PASSWORD);
+  WiFi.setHostname(HOSTNAME);
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
@@ -265,8 +267,39 @@ void setup()
   Serial.print("Rover Ready! Go to: http://");
 
   Serial.println(WiFi.localIP());
-  
+
   digitalWrite(LED_PIN, HIGH);
+
+  ArduinoOTA.setHostname(HOSTNAME);
+  ArduinoOTA.setPassword(OTA_PASS);
+  // Password can be set with it's md5 value as well
+  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+
+  ArduinoOTA
+      .onStart([]()
+               {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      Serial.println("Start updating " + type); })
+      .onEnd([]()
+             { Serial.println("\nEnd"); })
+      .onProgress([](unsigned int progress, unsigned int total)
+                  { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); })
+      .onError([](ota_error_t error)
+               {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed"); });
+
+  ArduinoOTA.begin();
 
   // Start web server
   startServer();
@@ -279,6 +312,7 @@ bool ledState = false;
 
 void loop()
 {
+  ArduinoOTA.handle();
   stateTracker.loop();
 
   if (digitalRead(EMERGENCY_PIN) == HIGH)

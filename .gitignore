@@ -48,4 +48,4 @@
 # PlatformIO
 .pio
 
-src/ssid.h
+src/secrets.h

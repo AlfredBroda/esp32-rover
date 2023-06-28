@@ -46,14 +46,16 @@ private:
     motor_state_t type;
 };
 
-const MotorPreset M_FORWARD = {255, 0, 255, 0, MS_FORWARD};
+const int MAX_SPEED = 230;
+
+const MotorPreset M_FORWARD = {MAX_SPEED, 0, MAX_SPEED, 0, MS_FORWARD};
 const MotorPreset M_BACKWARD = {0, 160, 0, 160, MS_BACKWARD};
-const MotorPreset M_LEFT = {180, 0, 255, 0, MS_LEFT};
-const MotorPreset M_LEFT_REVERSE = {0, 100, 0, 255, MS_LEFT_REVERSE};
-const MotorPreset M_RIGHT = {255, 0, 180, 0, MS_RIGHT};
-const MotorPreset M_RIGHT_REVERSE = {0, 255, 0, 100, MS_RIGHT_REVERSE};
-const MotorPreset M_LEFT_SPOT = {0, 100, 100, 0, MS_LEFT_SPOT};
-const MotorPreset M_RIGHT_SPOT = {100, 0, 0, 100, MS_RIGHT_SPOT};
+const MotorPreset M_LEFT = {180, 0, MAX_SPEED, 0, MS_LEFT};
+const MotorPreset M_LEFT_REVERSE = {0, 100, 0, MAX_SPEED, MS_LEFT_REVERSE};
+const MotorPreset M_RIGHT = {MAX_SPEED, 0, 180, 0, MS_RIGHT};
+const MotorPreset M_RIGHT_REVERSE = {0, MAX_SPEED, 0, 100, MS_RIGHT_REVERSE};
+const MotorPreset M_LEFT_SPOT = {0, 140, 140, 0, MS_LEFT_SPOT};
+const MotorPreset M_RIGHT_SPOT = {140, 0, 0, 140, MS_RIGHT_SPOT};
 const MotorPreset M_STOP = {0, 0, 0, 0, MS_STOP};
 
 #endif // STRUCTS_H
