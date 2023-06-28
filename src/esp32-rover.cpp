@@ -126,10 +126,10 @@ state_t currentState = STOP;
 
 void setMotorState(MotorPreset preset)
 {
-  digitalWrite(MOTOR_1_PIN_1, preset.a1);
-  digitalWrite(MOTOR_1_PIN_2, preset.a2);
-  digitalWrite(MOTOR_2_PIN_1, preset.b1);
-  digitalWrite(MOTOR_2_PIN_2, preset.b2);
+  analogWrite(MOTOR_1_PIN_1, preset.a1);
+  analogWrite(MOTOR_1_PIN_2, preset.a2);
+  analogWrite(MOTOR_2_PIN_1, preset.b1);
+  analogWrite(MOTOR_2_PIN_2, preset.b2);
 }
 
 void trackHeading()
@@ -139,30 +139,30 @@ void trackHeading()
   Serial.print("Heading deviation: " + String(deviation));
   if (abs(deviation) > maxDeviation)
   {
-    if (deviation > 0)
+    if (currentState == FORWARD)
     {
-      if (currentState == FORWARD)
+      if (deviation > 0)
       {
         Serial.println(" Right");
-        setMotorState(M_RIGHT_SPOT);
+        setMotorState(M_RIGHT);
       }
-      else if (currentState == BACKWARD)
+      else
       {
-        Serial.println(" Left");
-        setMotorState(M_LEFT_SPOT);
+        Serial.println(" Lefst");
+        setMotorState(M_LEFT);
       }
     }
-    else
+    else if (currentState == BACKWARD)
     {
-      if (currentState == FORWARD)
+      if (deviation > 0)
       {
         Serial.println(" Left");
-        setMotorState(M_LEFT_SPOT);
+        setMotorState(M_LEFT_REVERSE);
       }
-      else if (currentState == BACKWARD)
+      else 
       {
         Serial.println(" Right");
-        setMotorState(M_RIGHT_SPOT);
+        setMotorState(M_RIGHT_REVERSE);
       }
     }
   }
