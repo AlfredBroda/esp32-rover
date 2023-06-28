@@ -221,7 +221,6 @@ void IMU::loop()
 
 int IMU::getHeading()
 {
-    Serial.printf("Roll %0.2f, Pitch %0.2f, Yaw %0.2f\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
     return heading;
 }
 

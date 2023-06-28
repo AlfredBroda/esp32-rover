@@ -33,8 +33,8 @@ class MotorPreset {
 
 const MotorPreset M_FORWARD = {1, 0, 1, 0};
 const MotorPreset M_BACKWARD = {0, 1, 0, 1};
-const MotorPreset M_LEFT = {0, 1, 0, 0};
-const MotorPreset M_RIGHT = {0, 0, 0, 1};
+const MotorPreset M_LEFT = {0, 0, 1, 0};
+const MotorPreset M_RIGHT = {0, 1, 0, 0};
 const MotorPreset M_LEFT_SPOT = {0, 1, 1, 0};
 const MotorPreset M_RIGHT_SPOT = {1, 0, 0, 1};
 const MotorPreset M_STOP = {0, 0, 0, 0};
