@@ -1,5 +1,4 @@
-#ifndef TRACKER_H
-#define TRACKER_H
+#pragma once
 
 #include "structs.h"
 #include "sensors/imu.h"
@@ -38,5 +37,3 @@ public:
     void emergencyStop();
     void setMaxDeviation(int newMaxDeviation);
 };
-
-#endif // TRACKER_H

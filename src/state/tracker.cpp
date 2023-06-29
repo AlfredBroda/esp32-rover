@@ -27,7 +27,7 @@ void Tracker::followHeading()
         }
         else if (currentState == BACKWARD)
         {
-            if (deviation < 0)
+            if (deviation > 0)
             {
                 if (currentPreset.getType() != MS_LEFT_REVERSE)
                 {

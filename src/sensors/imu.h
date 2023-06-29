@@ -1,6 +1,5 @@
 
-#ifndef IMU_H
-#define IMU_H
+#pragma once
 
 #include <Adafruit_MPU6050.h>
 #include <QMC5883L.h>
@@ -38,5 +37,3 @@ private:
     FusionVector g_cal_deg; // gyroscope calibration data converted to degrees
     int debugCounter;
 };
-
-#endif // IMU_H

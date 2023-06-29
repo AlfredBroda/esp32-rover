@@ -51,18 +51,18 @@ private:
 };
 
 const int SPD_H = 230;
-const int SPD_M = 140;
-const int SPD_L = 120;
+const int SPD_M = 180;
+const int SPD_L = 140;
 const int SPD_0 = 0;
 
 const MotorPreset M_FORWARD = {SPD_H, SPD_0, SPD_H, SPD_0, MS_FORWARD};
 
 const MotorPreset M_LEFT_FW = {SPD_L, SPD_0, SPD_H, SPD_0, MS_LEFT};
-const MotorPreset M_LFT_ARC = {SPD_0, SPD_0, SPD_M, SPD_0, MS_LEFT_ARC};
+const MotorPreset M_LFT_ARC = {SPD_0, SPD_L, SPD_M, SPD_0, MS_LEFT_ARC};
 const MotorPreset M_LFT_SPT = {SPD_0, SPD_L, SPD_L, SPD_0, MS_LEFT_SPOT};
 
 const MotorPreset M_RGHT_FW = {SPD_H, SPD_0, SPD_L, SPD_0, MS_RIGHT};
-const MotorPreset M_RGT_ARC = {SPD_M, SPD_0, SPD_0, SPD_0, MS_RIGHT_ARC};
+const MotorPreset M_RGT_ARC = {SPD_M, SPD_0, SPD_0, SPD_L, MS_RIGHT_ARC};
 const MotorPreset M_RGT_SPT = {SPD_L, SPD_0, SPD_0, SPD_L, MS_RIGHT_SPOT};
 
 const MotorPreset M_REVERSE = {SPD_0, SPD_H, SPD_0, SPD_H, MS_BACKWARD};

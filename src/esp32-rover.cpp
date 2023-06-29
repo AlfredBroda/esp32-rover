@@ -36,6 +36,12 @@ Cutter cutter = Cutter(CUTTER_PIN);
 #define MOTOR_2_PIN_1 13
 #define MOTOR_2_PIN_2 12
 
+// Reversed directions
+// #define MOTOR_1_PIN_1 12
+// #define MOTOR_1_PIN_2 13
+// #define MOTOR_2_PIN_1 26
+// #define MOTOR_2_PIN_2 27
+
 const char *HOSTNAME = "esp32-mower";
 
 httpd_handle_t esp_httpd = NULL;
