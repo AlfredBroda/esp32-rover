@@ -1,8 +1,9 @@
 
-#ifndef MPU_H
-#define MPU_H
+#ifndef IMU_H
+#define IMU_H
 
 #include <Adafruit_MPU6050.h>
+#include <Adafruit_HMC5883_U.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <Fusion/Fusion.h>
@@ -15,16 +16,19 @@ public:
     IMU();
     ~IMU();
     void init();
-    void init_motion_detection();
     void calibrate();
     void debug();
+    void magDetails();
+    void mpuDetails();
     void loop();
     int getHeading();
+
 private:
     Adafruit_MPU6050 mpu;
+    Adafruit_HMC5883_Unified mag;
     FusionAhrs ahrs;
     FusionOffset offset;
-    sensors_event_t a, g, temp;
+    sensors_event_t a, g, temp, m;
     float heading;
     float rad2deg(float rad);
     float mps2g(float mps);
@@ -36,4 +40,4 @@ private:
     FusionVector g_cal_deg; // gyroscope calibration data converted to degrees
 };
 
-#endif // MPU_H
+#endif // IMU_H

@@ -5,6 +5,8 @@ typedef enum
 {
     STOP,
     FORWARD,
+    FORWARD_LEFT,
+    FORWARD_RIGHT,
     BACKWARD,
     LEFT,
     RIGHT
@@ -15,9 +17,11 @@ typedef enum {
     MS_FORWARD,
     MS_BACKWARD,
     MS_LEFT,
+    MS_LEFT_ARC,
     MS_LEFT_SPOT,
     MS_LEFT_REVERSE,
     MS_RIGHT,
+    MS_RIGHT_ARC,
     MS_RIGHT_SPOT,
     MS_RIGHT_REVERSE
 } motor_state_t;
@@ -46,16 +50,25 @@ private:
     motor_state_t type;
 };
 
-const int MAX_SPEED = 230;
+const int SPD_H = 230;
+const int SPD_M = 140;
+const int SPD_L = 120;
+const int SPD_0 = 0;
 
-const MotorPreset M_FORWARD = {MAX_SPEED, 0, MAX_SPEED, 0, MS_FORWARD};
-const MotorPreset M_BACKWARD = {0, 160, 0, 160, MS_BACKWARD};
-const MotorPreset M_LEFT = {180, 0, MAX_SPEED, 0, MS_LEFT};
-const MotorPreset M_LEFT_REVERSE = {0, 100, 0, MAX_SPEED, MS_LEFT_REVERSE};
-const MotorPreset M_RIGHT = {MAX_SPEED, 0, 180, 0, MS_RIGHT};
-const MotorPreset M_RIGHT_REVERSE = {0, MAX_SPEED, 0, 100, MS_RIGHT_REVERSE};
-const MotorPreset M_LEFT_SPOT = {0, 140, 140, 0, MS_LEFT_SPOT};
-const MotorPreset M_RIGHT_SPOT = {140, 0, 0, 140, MS_RIGHT_SPOT};
-const MotorPreset M_STOP = {0, 0, 0, 0, MS_STOP};
+const MotorPreset M_FORWARD = {SPD_H, SPD_0, SPD_H, SPD_0, MS_FORWARD};
+
+const MotorPreset M_LEFT_FW = {SPD_L, SPD_0, SPD_H, SPD_0, MS_LEFT};
+const MotorPreset M_LFT_ARC = {SPD_0, SPD_0, SPD_M, SPD_0, MS_LEFT_ARC};
+const MotorPreset M_LFT_SPT = {SPD_0, SPD_L, SPD_L, SPD_0, MS_LEFT_SPOT};
+
+const MotorPreset M_RGHT_FW = {SPD_H, SPD_0, SPD_L, SPD_0, MS_RIGHT};
+const MotorPreset M_RGT_ARC = {SPD_M, SPD_0, SPD_0, SPD_0, MS_RIGHT_ARC};
+const MotorPreset M_RGT_SPT = {SPD_L, SPD_0, SPD_0, SPD_L, MS_RIGHT_SPOT};
+
+const MotorPreset M_REVERSE = {SPD_0, SPD_H, SPD_0, SPD_H, MS_BACKWARD};
+const MotorPreset M_LFT_REV = {SPD_0, SPD_L, SPD_0, SPD_H, MS_LEFT_REVERSE};
+const MotorPreset M_RGT_REV = {SPD_0, SPD_H, SPD_0, SPD_L, MS_RIGHT_REVERSE};
+
+const MotorPreset M_STOP = {SPD_0, SPD_0, SPD_0, SPD_0, MS_STOP};
 
 #endif // STRUCTS_H

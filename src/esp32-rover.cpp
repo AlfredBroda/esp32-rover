@@ -21,8 +21,6 @@
 #define CUTTER_RELAY
 #include "cutter/relay.cpp"
 
-#include "sensors/mpu.h"
-
 #define LED_PIN 2        // GPIO pin connected to the built LED
 #define EMERGENCY_PIN 33 // GPIO pin connected to the emergency stop button
 
@@ -85,7 +83,9 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     <h1>ESP32 Rover</h1>
     <table>
       <tr>
-        <td colspan="3" align="center"><button class="button" onmousedown="toggleCheckbox('forward');" ontouchstart="toggleCheckbox('forward');">Forward</button></td>
+        <td align="center"><button class="button" onmousedown="toggleCheckbox('pivotl');" ontouchstart="toggleCheckbox('pivotl');" onmouseup="toggleCheckbox('forward');" ontouchend="toggleCheckbox('forward');">Forward Left</button></td>
+        <td align="center"><button class="button" onmousedown="toggleCheckbox('forward');" ontouchstart="toggleCheckbox('forward');">Forward</button></td>
+        <td align="center"><button class="button" onmousedown="toggleCheckbox('pivotr');" ontouchstart="toggleCheckbox('pivotr');" onmouseup="toggleCheckbox('forward');" ontouchend="toggleCheckbox('forward');">Forward Right</button></td>
       </tr><tr>
         <td align="center"><button class="button" onmousedown="toggleCheckbox('left');" ontouchstart="toggleCheckbox('left');" onmouseup="toggleCheckbox('stop');" ontouchend="toggleCheckbox('stop');">Left</button></td>
         <td align="center"><button class="button" onmousedown="toggleCheckbox('stop');" ontouchstart="toggleCheckbox('stop');">Stop</button></td>
@@ -168,22 +168,37 @@ static esp_err_t cmd_handler(httpd_req_t *req)
   }
   else if (!strcmp(variable, "forward"))
   {
+    Serial.println("Forward");
     stateTracker.setState(FORWARD);
   }
   else if (!strcmp(variable, "left"))
   {
+    Serial.println("Left");
     stateTracker.setState(LEFT);
   }
   else if (!strcmp(variable, "right"))
   {
+    Serial.println("Right");
     stateTracker.setState(RIGHT);
+  }
+  else if (!strcmp(variable, "pivotl"))
+  {
+    Serial.println("Left Forward");
+    stateTracker.setState(FORWARD_LEFT);
+  }
+  else if (!strcmp(variable, "pivotr"))
+  {
+    Serial.println("Right Forward");
+    stateTracker.setState(FORWARD_RIGHT);
   }
   else if (!strcmp(variable, "backward"))
   {
+    Serial.println("Backward");
     stateTracker.setState(BACKWARD);
   }
   else if (!strcmp(variable, "stop"))
   {
+    Serial.println("Stop");
     stateTracker.setState(STOP);
   }
   else if (!strcmp(variable, "cutter"))
@@ -261,6 +276,7 @@ void setup()
   // Start generating signal for the cutter motor
   Serial.println("Cutter init");
   cutter.init();
+  Serial.println("Done.\n");
 
   stateTracker.init();
 

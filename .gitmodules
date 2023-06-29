@@ -7,3 +7,6 @@
 [submodule "lib/Adafruit_MPU6050"]
 	path = lib/Adafruit_MPU6050
 	url = https://github.com/adafruit/Adafruit_MPU6050.git
+[submodule "lib/Adafruit_HMC5883_Unified"]
+	path = lib/Adafruit_HMC5883_Unified
+	url = https://github.com/adafruit/Adafruit_HMC5883_Unified.git

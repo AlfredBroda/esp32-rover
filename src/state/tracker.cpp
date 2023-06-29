@@ -3,8 +3,8 @@
 void Tracker::followHeading()
 {
     const int currentHeading = imu.getHeading();
-    int deviation = currentHeading - heading;
-    if (abs(deviation) > maxDeviation)
+    int deviation = (360 + currentHeading) - (heading + 360);
+    if (deviation > maxDeviation)
     {
         if (currentState == FORWARD)
         {
@@ -13,7 +13,7 @@ void Tracker::followHeading()
                 if (currentPreset.getType() != MS_RIGHT)
                 {
                     currentAction = "Turn Right " + String(heading);
-                    setMotorState(M_RIGHT);
+                    setMotorState(M_RGHT_FW);
                 }
             }
             else
@@ -21,18 +21,18 @@ void Tracker::followHeading()
                 if (currentPreset.getType() != MS_LEFT)
                 {
                     currentAction = "Turn Left " + String(heading);
-                    setMotorState(M_LEFT);
+                    setMotorState(M_LEFT_FW);
                 }
             }
         }
         else if (currentState == BACKWARD)
         {
-            if (deviation > 0)
+            if (deviation < 0)
             {
                 if (currentPreset.getType() != MS_LEFT_REVERSE)
                 {
                     currentAction = "Rev Left " + String(heading);
-                    setMotorState(M_LEFT_REVERSE);
+                    setMotorState(M_LFT_REV);
                 }
             }
             else
@@ -40,7 +40,7 @@ void Tracker::followHeading()
                 if (currentPreset.getType() != MS_RIGHT_REVERSE)
                 {
                     currentAction = "Rev Right " + String(heading);
-                    setMotorState(M_RIGHT_REVERSE);
+                    setMotorState(M_RGT_REV);
                 }
             }
         }
@@ -55,7 +55,7 @@ void Tracker::followHeading()
         else if ((currentState == BACKWARD) && (currentPreset.getType() != MS_BACKWARD))
         {
             currentAction = "Rev Straight " + String(heading);
-            setMotorState(M_BACKWARD);
+            setMotorState(M_REVERSE);
         }
     }
 }
@@ -109,16 +109,24 @@ void Tracker::setState(state_t newState)
         break;
     case BACKWARD:
         saveHeading();
-        setMotorState(M_BACKWARD);
+        setMotorState(M_REVERSE);
         currentAction = "Reverse";
         break;
     case LEFT:
-        setMotorState(M_LEFT_SPOT);
+        setMotorState(M_LFT_SPT);
         currentAction = "Pivot Left";
         break;
     case RIGHT:
-        setMotorState(M_RIGHT_SPOT);
+        setMotorState(M_RGT_SPT);
         currentAction = "Pivot Right";
+        break;
+    case FORWARD_LEFT:
+        setMotorState(M_LFT_ARC);
+        currentAction = "Arc Left";
+        break;
+    case FORWARD_RIGHT:
+        setMotorState(M_RGT_ARC);
+        currentAction = "Arc Right";
         break;
     case STOP:
         setMotorState(M_STOP);
@@ -181,6 +189,8 @@ void Tracker::loop()
     if (currentState == FORWARD || currentState == BACKWARD)
     {
         followHeading();
+    } else if (currentState == FORWARD_LEFT) {
+        setMotorState(currentPreset);
     }
 }
 

@@ -2,7 +2,7 @@
 #define TRACKER_H
 
 #include "structs.h"
-#include "sensors/mpu.h"
+#include "sensors/imu.h"
 #include "cutter/cutter.h"
 
 struct Tracker
