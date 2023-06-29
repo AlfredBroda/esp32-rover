@@ -22,7 +22,7 @@ void IMU::init()
 
     IMU::mpuDetails();
 
-    mag = Adafruit_HMC5883_Unified();
+    mag = QMC5883L_Unified();
     if (!mag.begin())
     {
         Serial.println("Failed to find HMC5883 sensor!");
@@ -36,14 +36,13 @@ void IMU::init()
     IMU::magDetails();
 
     delay(1000);
-    calibrate();
+    mpuCalibrate();
 
     FusionOffsetInitialise(&offset, SAMPLE_RATE);
     FusionAhrsInitialise(&ahrs);
-    // debug();
 }
 
-void IMU::calibrate()
+void IMU::mpuCalibrate()
 {
     mpu.getEvent(&a, &g, &temp);
     delay(100);
@@ -78,20 +77,9 @@ void IMU::debug()
     Serial.print(g.gyro.z + g_cal.axis.z);
     Serial.println(" rad/s");
 
-    Serial.print("Temperature: ");
-    Serial.print(temp.temperature);
-    Serial.println(" degC");
+    Serial.printf("Temperature: %0.3f degC\n", temp.temperature);
 
-    Serial.print("Compass X: ");
-    Serial.print(m.magnetic.x);
-    Serial.print(", Y: ");
-    Serial.print(m.magnetic.y);
-    Serial.print(", Z: ");
-    Serial.print(m.magnetic.z);
-    Serial.println(" uT");
-
-    Serial.println("");
-    delay(500);
+    Serial.printf("Compass X: %0.3f, Y: %0.3f, Z: %0.3f uT\n", m.magnetic.x, m.magnetic.y, m.magnetic.z);
 }
 
 float IMU::rad2deg(float radians)
@@ -140,12 +128,18 @@ void IMU::loop()
     // Update gyroscope offset correction algorithm
     gyroscope = FusionOffsetUpdate(&offset, gyroscope);
 
-    FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, elapsedSeconds);
+    // FIXME: Magnetometer is not working
+    // FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, elapsedSeconds);
+    FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, elapsedSeconds);
 
     euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
 
-    Serial.printf("Roll %0.2f, Pitch %0.2f, Yaw %0.2f, time %0.3fs\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw, elapsedSeconds);
-    debug();
+    if (debugCounter++ > 30)
+    {
+        debugCounter = 0;
+        debug();
+        Serial.printf("Roll %0.2f, Pitch %0.2f, Yaw %0.2f, time %0.3fs\n\n", euler.angle.roll, euler.angle.pitch, euler.angle.yaw, elapsedSeconds);
+    }
 
     heading = euler.angle.yaw;
 
@@ -270,12 +264,4 @@ void IMU::magDetails()
     Serial.println(" uT");
     Serial.println("------------------------------------\n");
     delay(500);
-}
-
-IMU::IMU()
-{
-}
-
-IMU::~IMU()
-{
 }

@@ -89,7 +89,7 @@ void Tracker::emergencyStop()
 
     // recalibrate IMU
     delay(5000);
-    imu.calibrate();
+    imu.mpuCalibrate();
 }
 
 void Tracker::setMaxDeviation(int newMaxDeviation)
@@ -159,9 +159,8 @@ void Tracker::setMotorState(MotorPreset preset)
     analogWrite(mb2, preset.b2);
 }
 
-Tracker::Tracker(int pin1, int pin2, int pin3, int pin4, IMU imu)
+Tracker::Tracker(int pin1, int pin2, int pin3, int pin4)
 {
-    this->imu = imu;
     heading = 0;
     maxDeviation = 5;
     currentState = STOP;

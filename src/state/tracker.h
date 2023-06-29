@@ -18,7 +18,7 @@ private:
     void followHeading();
     String currentAction;
 public:
-    Tracker(int, int, int, int, IMU);
+    Tracker(int, int, int, int);
     void init();
     void loop();
 

@@ -39,7 +39,7 @@ const char *HOSTNAME = "esp32-mower";
 
 httpd_handle_t esp_httpd = NULL;
 
-Tracker stateTracker = Tracker(MOTOR_1_PIN_1, MOTOR_1_PIN_2, MOTOR_2_PIN_1, MOTOR_2_PIN_2, IMU());
+Tracker stateTracker = Tracker(MOTOR_1_PIN_1, MOTOR_1_PIN_2, MOTOR_2_PIN_1, MOTOR_2_PIN_2);
 
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>

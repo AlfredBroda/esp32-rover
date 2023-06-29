@@ -3,7 +3,7 @@
 #define IMU_H
 
 #include <Adafruit_MPU6050.h>
-#include <Adafruit_HMC5883_U.h>
+#include <QMC5883L.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <Fusion/Fusion.h>
@@ -13,10 +13,8 @@
 class IMU
 {
 public:
-    IMU();
-    ~IMU();
     void init();
-    void calibrate();
+    void mpuCalibrate();
     void debug();
     void magDetails();
     void mpuDetails();
@@ -25,7 +23,7 @@ public:
 
 private:
     Adafruit_MPU6050 mpu;
-    Adafruit_HMC5883_Unified mag;
+    QMC5883L_Unified mag;
     FusionAhrs ahrs;
     FusionOffset offset;
     sensors_event_t a, g, temp, m;
@@ -38,6 +36,7 @@ private:
     FusionVector g_cal; // gyroscope calibration data
     FusionVector a_cal_g ; // accelerometer calibration data converted to Gs
     FusionVector g_cal_deg; // gyroscope calibration data converted to degrees
+    int debugCounter;
 };
 
 #endif // IMU_H
