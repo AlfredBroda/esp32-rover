@@ -17,6 +17,7 @@
 #include "secrets.h"
 #include "state/structs.h"
 #include "state/tracker.h"
+#include "sensors/gps.h"
 
 #define CUTTER_RELAY
 #include "cutter/relay.cpp"
@@ -40,6 +41,7 @@ const char *HOSTNAME = "esp32-mower";
 httpd_handle_t esp_httpd = NULL;
 
 Tracker stateTracker = Tracker(MOTOR_1_PIN_1, MOTOR_1_PIN_2, MOTOR_2_PIN_1, MOTOR_2_PIN_2);
+GPS gps;
 
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>
@@ -317,13 +319,15 @@ void setup()
 
   ArduinoOTA.begin();
 
+  gps.init();
+
   // Start web server
   startServer();
 }
 
 unsigned long lastTime = 0;
 unsigned long timeElapsed = 0;
-int blinkTime = 1000;
+const int blinkTime = 1000;
 bool ledState = false;
 
 void loop()
@@ -347,5 +351,8 @@ void loop()
     digitalWrite(LED_PIN, ledState);
     lastTime = millis();
     ledState = !ledState;
+
+    // GPS output
+    gps.loop();
   }
 }
